@@ -93,7 +93,7 @@ def add_abs(a: int, b: int) -> int:
 
 def sub_abs(a: int, b: int) -> int:
     aa, bb = limbs(a), limbs(b)
-    dst = np.zeros(aa.size, dtype=np.uint32)
+    dst = np.empty(aa.size, dtype=np.uint32)
     n = lib().mg_sub(addr(aa), aa.size, addr(bb), bb.size, addr(dst))
     return from_limbs(dst, n)
 
@@ -102,7 +102,7 @@ def mul_abs(a: int, b: int) -> int:
     if not a or not b:
         return 0
     aa, bb = limbs(a), limbs(b)
-    dst = np.zeros(aa.size + bb.size, dtype=np.uint32)
+    dst = np.empty(aa.size + bb.size, dtype=np.uint32)
     n = lib().mg_mul(addr(aa), aa.size, addr(bb), bb.size, addr(dst))
     return from_limbs(dst, n)
 
@@ -110,7 +110,7 @@ def mul_abs(a: int, b: int) -> int:
 def gcd_abs(a: int, b: int) -> int:
     aa, bb = limbs(a), limbs(b)
     capacity = max(aa.size, bb.size) + 1
-    scratch = np.zeros((3, capacity), dtype=np.uint32)
+    scratch = np.empty((3, capacity), dtype=np.uint32)
     u, v, dst = scratch
     n = lib().mg_gcd(
         addr(aa), aa.size, addr(bb), bb.size, addr(u), addr(v), addr(dst)
@@ -123,7 +123,7 @@ def powmod_abs(base: int, exponent: int, modulus: int) -> int:
     aa = limbs(base % modulus, n)
     ee = limbs(exponent)
     mm = limbs(modulus, n)
-    buffers = np.zeros((5, n), dtype=np.uint32)
+    buffers = np.empty((5, n), dtype=np.uint32)
     result, power, product, addend, tmp = buffers
     used = lib().mg_powmod(
         addr(aa),

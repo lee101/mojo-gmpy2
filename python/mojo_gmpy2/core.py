@@ -10,6 +10,8 @@ from . import _lib
 
 
 def _int(value) -> int:
+    if isinstance(value, int):
+        return value
     if isinstance(value, mpq):
         if value.denominator != 1:
             raise TypeError("cannot convert non-integral rational to mpz")
@@ -57,12 +59,14 @@ class mpz(int):
             return NotImplemented
 
     def __mul__(self, other):
-        try:
-            b = _int(other)
-        except TypeError:
-            return NotImplemented
-        a = int(self)
-        return mpz(a * b)
+        if isinstance(other, int):
+            b = other
+        else:
+            try:
+                b = _int(other)
+            except TypeError:
+                return NotImplemented
+        return int.__new__(mpz, int.__mul__(self, b))
 
     __rmul__ = __mul__
 
@@ -151,7 +155,16 @@ class mpq(Fraction):
                 return super().__new__(cls, int(numerator, base))
             return super().__new__(cls, numerator)
         if type(numerator) is int and type(denominator) is int:
-            return super().__new__(cls, numerator, denominator)
+            if denominator == 0:
+                raise ZeroDivisionError("Fraction(%s, 0)" % numerator)
+            if denominator > 0 and (numerator == 1 or numerator == -1):
+                return cls._from_coprime_ints(numerator, denominator)
+            common = math.gcd(numerator, denominator)
+            if denominator < 0:
+                common = -common
+            return cls._from_coprime_ints(
+                numerator // common, denominator // common
+            )
         return super().__new__(cls, _int(numerator), _int(denominator))
 
     @property
@@ -176,10 +189,6 @@ class mpq(Fraction):
         return mpq(value)
 
     def __add__(self, other):
-        if isinstance(other, int):
-            return mpq._from_coprime_ints(
-                self._numerator + other * self._denominator, self._denominator
-            )
         if type(other) is mpq or type(other) is Fraction:
             na, da = self._numerator, self._denominator
             nb, db = other._numerator, other._denominator
@@ -191,6 +200,10 @@ class mpq(Fraction):
             cancel = math.gcd(numerator, common)
             return mpq._from_coprime_ints(
                 numerator // cancel, scaled_da * (db // cancel)
+            )
+        if isinstance(other, int):
+            return mpq._from_coprime_ints(
+                self._numerator + other * self._denominator, self._denominator
             )
         if isinstance(other, Fraction):
             return self._wrap(Fraction.__add__(self, other))
@@ -240,10 +253,10 @@ class mpq(Fraction):
 def gcd(*values):
     if not values:
         return mpz(0)
-    result = 0
-    for value in values:
+    result = abs(_int(values[0]))
+    for value in values[1:]:
         result = math.gcd(result, _int(value))
-    return mpz(result)
+    return int.__new__(mpz, result)
 
 
 def lcm(*values):
@@ -286,7 +299,7 @@ def powmod(x, y, modulus):
         raise ValueError("powmod() modulus must be positive")
     if y < 0:
         x, y = int(invert(x, modulus)), -y
-    return mpz(pow(x, y, modulus))
+    return int.__new__(mpz, pow(x, y, modulus))
 
 
 def divexact(x, y):

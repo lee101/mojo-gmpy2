@@ -12,10 +12,22 @@ def limbs(addr: Int) -> LimbPtr:
 
 
 def normalized(a: LimbPtr, n_in: Int) -> Int:
+    comptime W = simd_width_of[DType.float64]()
     var n = n_in
-    while n > 0 and a[n - 1] == 0:
+    while n > 0 and n % W != 0:
+        if a[n - 1] != 0:
+            return n
         n -= 1
-    return n
+    var zeros = SIMD[DType.uint32, W](0)
+    while n >= W:
+        var block_start = n - W
+        var nonzero = a.load[width=W](block_start).ne(zeros)
+        if nonzero.cast[DType.int64]().reduce_add() != 0:
+            while n > block_start and a[n - 1] == 0:
+                n -= 1
+            return n
+        n = block_start
+    return 0
 
 
 def copy_limbs(src: LimbPtr, dst: LimbPtr, n: Int):
@@ -44,12 +56,27 @@ def compare(a: LimbPtr, na_in: Int, b: LimbPtr, nb_in: Int) -> Int:
         return -1
     if na > nb:
         return 1
-    for ri in range(na):
-        var i = na - 1 - ri
+    comptime W = simd_width_of[DType.float64]()
+    var n = na
+    while n > 0 and n % W != 0:
+        var i = n - 1
         if a[i] < b[i]:
             return -1
         if a[i] > b[i]:
             return 1
+        n -= 1
+    while n >= W:
+        var block_start = n - W
+        var av = a.load[width=W](block_start)
+        var bv = b.load[width=W](block_start)
+        if av.ne(bv).cast[DType.int64]().reduce_add() != 0:
+            for ri in range(W):
+                var i = n - 1 - ri
+                if a[i] < b[i]:
+                    return -1
+                if a[i] > b[i]:
+                    return 1
+        n = block_start
     return 0
 
 

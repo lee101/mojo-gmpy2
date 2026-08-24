@@ -58,6 +58,14 @@ def test_limb_simd_tail_paths(bits):
     assert _lib.powmod_abs(a % modulus, 37, modulus) == pow(a, 37, modulus)
 
 
+@pytest.mark.parametrize("bits", [159, 160, 161, 255, 256, 257])
+def test_limb_simd_compare_and_normalize_blocks(bits):
+    a = (1 << bits) - 1
+    b = a - (1 << (bits // 2))
+    assert _lib.mul_abs(a, b) == a * b
+    assert _lib.gcd_abs(a, b) == math.gcd(a, b)
+
+
 @pytest.mark.parametrize(
     "a,b",
     [
@@ -125,6 +133,11 @@ def test_mpq_arithmetic(left, right):
 def test_mpq_string_construction():
     assert mojo.mpq("123/456") == reference.mpq("123/456")
     assert mojo.mpq("ff/10", base=16) == reference.mpq("ff/10", base=16)
+
+
+@pytest.mark.parametrize("numerator,denominator", [(1, 97), (-1, 97), (1, -97)])
+def test_mpq_unit_numerator_fast_path(numerator, denominator):
+    assert mojo.mpq(numerator, denominator) == reference.mpq(numerator, denominator)
 
 
 def test_rational_helpers():

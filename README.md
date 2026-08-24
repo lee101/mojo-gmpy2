@@ -91,24 +91,31 @@ pixi run python -c \
 
 ## Benchmarks
 
-Measured on 2026-07-30 with an Intel Xeon E5-2697 v4 at 2.30 GHz, Linux x86-64.
+Measured on 2026-08-24 with an Intel Xeon E5-2697 v4 at 2.30 GHz, Linux x86-64.
 Each row is the best of five same-process runs from `pixi run bench`; the
 multiplication and GCD rows execute batches and report per-operation time.
 
 | operation | mojo-gmpy2 | gmpy2 2.3.0 / GMP | relative |
 | --- | ---: | ---: | ---: |
-| `mpz` multiply, 4096-bit | 15.00 us/op | 2.68 us/op | 5.6x slower |
-| GCD, approximately 2600-bit | 7.47 us/op | 1.26 us/op | 5.9x slower |
-| `powmod`, 255-bit modulus | 86.46 us/op | 7.24 us/op | 11.9x slower |
-| `mpq` harmonic sum, 250 terms | 2.06 us/term | 0.53 us/term | 3.9x slower |
+| `mpz` multiply, 4096-bit | 23.74 us/op | 5.24 us/op | 4.5x slower |
+| GCD, approximately 2600-bit | 10.53 us/op | 2.27 us/op | 4.6x slower |
+| `powmod`, 255-bit modulus | 139.21 us/op | 13.61 us/op | 10.2x slower |
+| `mpq` harmonic sum, 250 terms | 3.20 us/term | 1.01 us/term | 3.2x slower |
 
 Upstream still wins because it calls GMP's tuned low-level algorithms. The Mojo
-limb copy and clear helpers use host-width SIMD with scalar remainder loops.
-Read-only input limbs are zero-copy NumPy views. Rational addition constructs
-already-normalized `mpq` results directly instead of wrapping and re-reading an
-intermediate `Fraction`.
+limb copy, clear, normalization, and equal-length comparison helpers use
+host-width SIMD with scalar remainder loops. Read-only input limbs are zero-copy
+NumPy views, and scratch buffers are left uninitialized when their kernels fully
+overwrite them. Common `mpz` operations retain subclass operands instead of
+copying them to exact Python integers. Rational construction and addition build
+already-normalized `mpq` results directly.
 
-No multithreaded CPU or GPU path is implemented.
+No multithreaded CPU path is implemented because carry propagation, GCD
+iterations, modular exponentiation, and the harmonic recurrence are dependent;
+thread launch and reduction overhead would dominate these operand sizes. No GPU
+path is implemented because the exposed operations are single small integer
+problems without enough independent, high-arithmetic-intensity work to amortize
+device transfer and launch overhead. CPU remains the only execution path.
 
 ## How it works
 
